@@ -1,21 +1,7 @@
 name: Crear APK Android
-
-on:
-workflow_dispatch:
-push:
-paths:
-- "*.zip"
-- ".github/workflows/android.yml"
-
-jobs:
-build:
-runs-on: ubuntu-latest
-
-steps:
-  - name: Descargar archivos
-    uses: actions/checkout@v4
-
-  - name: Preparar Java
+on: workflow_dispatch
+jobs: build: runs-on: ubuntu-latest steps: - name: Descargar archivos uses: actions/checkout@v4
+- name: Preparar Java
     uses: actions/setup-java@v4
     with:
       distribution: temurin
@@ -30,21 +16,15 @@ steps:
     run: |
       mkdir proyecto
       unzip "*.zip" -d proyecto
-      test -f proyecto/LavavaPrecioAndroid/app/build.gradle.kts
+      find proyecto -name build.gradle.kts
 
-  - name: Corregir versiones de Java y Kotlin
+  - name: Configurar Java y Kotlin
     run: |
       python3 - <<'PY'
       from pathlib import Path
-
       p = Path("proyecto/LavavaPrecioAndroid/app/build.gradle.kts")
       s = p.read_text()
-
       if "compileOptions" not in s:
-          pos = s.rfind("}")
-          if pos == -1:
-              raise SystemExit("No se encontró el bloque android")
-
           addition = """
           compileOptions {
               sourceCompatibility = JavaVersion.VERSION_17
@@ -53,12 +33,10 @@ steps:
           kotlinOptions {
               jvmTarget = "17"
           }
-      """
-
+          """
+          pos = s.rfind("}")
           s = s[:pos] + addition + s[pos:]
           p.write_text(s)
-
-      print(p.read_text())
       PY
 
   - name: Compilar aplicación
@@ -71,4 +49,4 @@ steps:
     with:
       name: LavavaPrecio-APK
       path: proyecto/LavavaPrecioAndroid/app/build/outputs/apk/debug/*.apk
-      if-no-files-found: error
+      
