@@ -33,9 +33,28 @@ jobs:
           find proyecto -name settings.gradle.kts
 
       - name: Compilar aplicación
-        run: |
-          cd proyecto/LavavaPrecioAndroid
-          gradle assembleDebug
+  run: | 
+  cd proyecto/LavavaPrecioAndroid
+  python3 - <<'PY'
+  from pathlib import Path
+  
+      p = Path("app/build.gradle.kts")
+    s = p.read_text()
+
+    addition = '''
+        compileOptions {
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
+        }
+        kotlinOptions {
+            jvmTarget = "17"
+        }
+    '''
+
+    s = s.replace("android {", "android {" + addition, 1)
+    p.write_text(s)
+    PY
+    gradle assembleDebug
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
