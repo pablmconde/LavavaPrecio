@@ -1,63 +1,74 @@
 name: Crear APK Android
 
 on:
-  workflow_dispatch:
-  push:
-    paths:
-      - "*.zip"
-      - ".github/workflows/android.yml"
+workflow_dispatch:
+push:
+paths:
+- "*.zip"
+- ".github/workflows/android.yml"
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+build:
+runs-on: ubuntu-latest
 
-    steps:
-      - name: Descargar archivos
-        uses: actions/checkout@v4
+steps:
+  - name: Descargar archivos
+    uses: actions/checkout@v4
 
-      - name: Preparar Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
+  - name: Preparar Java
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: "17"
 
-      - name: Preparar Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.9"
+  - name: Preparar Gradle
+    uses: gradle/actions/setup-gradle@v4
+    with:
+      gradle-version: "8.9"
 
-      - name: Descomprimir proyecto
-        run: |
-          mkdir proyecto
-          unzip "*.zip" -d proyecto
-          find proyecto -name settings.gradle.kts
+  - name: Descomprimir proyecto
+    run: |
+      mkdir proyecto
+      unzip "*.zip" -d proyecto
+      test -f proyecto/LavavaPrecioAndroid/app/build.gradle.kts
 
-      - name: Compilar aplicación
-  run: | 
-  cd proyecto/LavavaPrecioAndroid
-  python3 - <<'PY'
-  from pathlib import Path
-  
-      p = Path("app/build.gradle.kts")
-    s = p.read_text()
+  - name: Corregir versiones de Java y Kotlin
+    run: |
+      python3 - <<'PY'
+      from pathlib import Path
 
-    addition = '''
-        compileOptions {
-            sourceCompatibility = JavaVersion.VERSION_17
-            targetCompatibility = JavaVersion.VERSION_17
-        }
-        kotlinOptions {
-            jvmTarget = "17"
-        }
-    '''
+      p = Path("proyecto/LavavaPrecioAndroid/app/build.gradle.kts")
+      s = p.read_text()
 
-    s = s.replace("android {", "android {" + addition, 1)
-    p.write_text(s)
-    PY
-    gradle assembleDebug
+      if "compileOptions" not in s:
+          pos = s.rfind("}")
+          if pos == -1:
+              raise SystemExit("No se encontró el bloque android")
 
-      - name: Guardar APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: LavavaPrecio-APK
-          path: proyecto/LavavaPrecioAndroid/app/build/outputs/apk/debug/*.apk
+          addition = """
+          compileOptions {
+              sourceCompatibility = JavaVersion.VERSION_17
+              targetCompatibility = JavaVersion.VERSION_17
+          }
+          kotlinOptions {
+              jvmTarget = "17"
+          }
+      """
+
+          s = s[:pos] + addition + s[pos:]
+          p.write_text(s)
+
+      print(p.read_text())
+      PY
+
+  - name: Compilar aplicación
+    run: |
+      cd proyecto/LavavaPrecioAndroid
+      gradle assembleDebug
+
+  - name: Guardar APK
+    uses: actions/upload-artifact@v4
+    with:
+      name: LavavaPrecio-APK
+      path: proyecto/LavavaPrecioAndroid/app/build/outputs/apk/debug/*.apk
+      if-no-files-found: error
