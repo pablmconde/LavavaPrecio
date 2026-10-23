@@ -1,38 +1,71 @@
 name: Crear APK Android
 
-'on':
-  workflow_dispatch:
+'on': workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Descargar archivos
-        uses: actions/checkout@v4
+build:
+runs-on: ubuntu-latest
 
-      - name: Preparar Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+steps:
+  - name: Descargar archivos
+    uses: actions/checkout@v4
 
-      - name: Preparar Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
+  - name: Preparar Java
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: '17'
 
-      - name: Descomprimir proyecto
-        shell: bash
-        run: | set -eux mkdir proyecto unzip "*.zip" -d proyecto test -f proyecto/LavavaPrecioAndroid/app/build.gradle.kts 
-      - name: Corregir compatibilidad Java y Kotlin
-        shell: bash
-        run: | python3 -c 'from pathlib import Path; p=Path("proyecto/LavavaPrecioAndroid/app/build.gradle.kts"); s=p.read_text(); addition="\\n compileOptions {\\n sourceCompatibility = JavaVersion.VERSION_17\\n targetCompatibility = JavaVersion.VERSION_17\\n }\\n kotlinOptions {\\n jvmTarget = \\"17\\"\\n }\\n"; pos=s.find("\\n}", s.find("android {")); s=s if "compileOptions" in s else s[:pos]+addition+s[pos:]; p.write_text(s)' 
-      - name: Compilar aplicación
-        shell: bash
-        run: | cd proyecto/LavavaPrecioAndroid gradle assembleDebug 
-      - name: Guardar APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: LavavaPrecio-APK
-          path: proyecto/LavavaPrecioAndroid/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
+  - name: Preparar Gradle
+    uses: gradle/actions/setup-gradle@v4
+    with:
+      gradle-version: '8.9'
+
+  - name: Descomprimir proyecto
+    shell: bash
+    run: |
+      set -eux
+      mkdir -p proyecto
+      unzip "*.zip" -d proyecto
+      test -f proyecto/LavavaPrecioAndroid/app/build.gradle.kts
+
+  - name: Corregir compatibilidad Java y Kotlin
+    shell: bash
+    run: |
+      python3 -c '
+      from pathlib import Path
+
+      p = Path("proyecto/LavavaPrecioAndroid/app/build.gradle.kts")
+      s = p.read_text()
+
+      addition = """
+          compileOptions {
+              sourceCompatibility = JavaVersion.VERSION_17
+              targetCompatibility = JavaVersion.VERSION_17
+          }
+          kotlinOptions {
+              jvmTarget = "17"
+          }
+      """
+
+      if "compileOptions" not in s:
+          pos = s.find("\n}", s.find("android {"))
+          if pos == -1:
+              raise SystemExit("No se encontró el bloque android en build.gradle.kts")
+          s = s[:pos] + "\n" + addition + s[pos:]
+
+      p.write_text(s)
+      '
+
+  - name: Compilar aplicación
+    shell: bash
+    run: |
+      cd proyecto/LavavaPrecioAndroid
+      gradle assembleDebug
+
+  - name: Guardar APK
+    uses: actions/upload-artifact@v4
+    with:
+      name: LavavaPrecio-APK
+      path: proyecto/LavavaPrecioAndroid/app/build/outputs/apk/debug/*.apk
+      if-no-files-found: error
