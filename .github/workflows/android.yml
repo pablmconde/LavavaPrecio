@@ -22,10 +22,13 @@ jobs:
           gradle-version: '8.9'
 
       - name: Descomprimir proyecto
-        run: | mkdir proyecto unzip "*.zip" -d proyecto find proyecto -maxdepth 4 -type f -name 'build.gradle.kts' 
+        shell: bash
+        run: | set -eux mkdir proyecto unzip "*.zip" -d proyecto test -f proyecto/LavavaPrecioAndroid/app/build.gradle.kts 
       - name: Corregir compatibilidad Java y Kotlin
-        run: | python3 - <<'PY' from pathlib import Path p = Path("proyecto/LavavaPrecioAndroid/app/build.gradle.kts") s = p.read_text() if "compileOptions" not in s: addition = ''' compileOptions { sourceCompatibility = JavaVersion.VERSION_17 targetCompatibility = JavaVersion.VERSION_17 } kotlinOptions { jvmTarget = "17" } ''' pos = s.rfind("}") if pos < 0: raise SystemExit("No se encontró el bloque de configuración") s = s[:pos] + addition + s[pos:] p.write_text(s) PY 
+        shell: bash
+        run: | python3 -c 'from pathlib import Path; p=Path("proyecto/LavavaPrecioAndroid/app/build.gradle.kts"); s=p.read_text(); addition="\\n compileOptions {\\n sourceCompatibility = JavaVersion.VERSION_17\\n targetCompatibility = JavaVersion.VERSION_17\\n }\\n kotlinOptions {\\n jvmTarget = \\"17\\"\\n }\\n"; pos=s.find("\\n}", s.find("android {")); s=s if "compileOptions" in s else s[:pos]+addition+s[pos:]; p.write_text(s)' 
       - name: Compilar aplicación
+        shell: bash
         run: | cd proyecto/LavavaPrecioAndroid gradle assembleDebug 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
